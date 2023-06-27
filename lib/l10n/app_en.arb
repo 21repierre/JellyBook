@@ -139,5 +139,9 @@
   "amoledTheme": "Amoled",
   "@amoledTheme": {},
   "licenses": "Licenses",
-  "@licenses": {}
+  "@licenses": {},
+  "login": "Login",
+  "@login": {},
+  "logout": "Logout",
+  "@logout": {}
 }

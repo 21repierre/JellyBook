@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:jellybook/providers/themeProvider.dart';
+import 'package:jellybook/screens/AnilistScreens/aniSettingsScreen.dart';
 // import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_settings_screens/flutter_settings_screens.dart';
@@ -83,6 +84,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(
               height: 20,
             ),
+            ElevatedButton(onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => AniSettingsScreen()));
+            }, child: const Text('Anilist')),
+            /*const SizedBox(
+              height: 20,
+            ),*/
             // experimentalFeaturesSettings(),
             // button to show log file
             // logToFile(),
@@ -91,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // ),
             SizedBox(
               // depends on screen size
-              height: MediaQuery.of(context).size.height * 0.38,
+              height: MediaQuery.of(context).size.height * 0.20,
             ),
             SizedBox(
               width: MediaQuery.of(context).size.width * 0.25,
@@ -131,7 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget themeSettings(BuildContext context) => DropDownSettingsTile(
         settingKey: 'theme',
         title: AppLocalizations.of(context)?.theme ?? 'theme',
-        selected: 
+        selected:
             Settings.getValue<String>('theme')?.toString() ?? AppLocalizations.of(context)?.systemTheme ?? 'System',
         leading: const Icon(Icons.color_lens),
         values: <String, String>{
@@ -448,7 +455,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
 
   // about settings (should contain the version number and the link to the github repo, and author)
-  Widget aboutSettings() => 
+  Widget aboutSettings() =>
         FutureBuilder(
           future: getPackageInfo(),
           builder: (context, snapshot) {

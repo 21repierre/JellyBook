@@ -1,35 +1,49 @@
+import 'dart:developer';
+import 'dart:io';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
-import 'package:jellybook/screens/loginScreen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:isar/isar.dart';
-import 'package:isar_flutter_libs/isar_flutter_libs.dart';
-import 'package:jellybook/screens/offlineBookReader.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:jellybook/models/anilist.dart';
 import 'package:jellybook/models/entry.dart';
 import 'package:jellybook/models/folder.dart';
 import 'package:jellybook/models/login.dart';
-import 'dart:io';
-
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'package:provider/provider.dart';
+import 'package:jellybook/providers/anilist.dart';
 import 'package:jellybook/providers/languageProvider.dart';
 import 'package:jellybook/providers/themeProvider.dart';
+import 'package:jellybook/screens/loginScreen.dart';
+import 'package:jellybook/screens/offlineBookReader.dart';
 import 'package:jellybook/variables.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uni_links2/uni_links.dart';
 
 Future<String> get _localPath async {
   // get the directory that normally is located at /storage/emulated/0/Documents/
-  var directory; 
+  var directory;
   if (Platform.isAndroid) {
     directory = await getExternalStorageDirectory();
   } else {
     directory = await getApplicationDocumentsDirectory();
   }
   return directory.path;
+}
+
+Future<void> initUniLinks() async {
+  linkStream.listen((String? url) async {
+    if (url!.startsWith("jellybook://anilist/#access_token=")) {
+      var token = url.substring(34).split('&')[0];
+      (await AnilistProvider.getInstance()).setToken(token);
+      final isar = Isar.getInstance();
+      await isar?.writeTxn(() async {
+        await isar.anilists.put(Anilist(token: token));
+      });
+    }
+  }, onError: (err) {});
 }
 
 Future<void> main() async {
@@ -60,8 +74,7 @@ Future<void> main() async {
   // path for isar database
   Directory dir = await getApplicationDocumentsDirectory();
 
-  final isar = await Isar.open([EntrySchema, FolderSchema, LoginSchema],
-      directory: dir.path);
+  final isar = await Isar.open([EntrySchema, FolderSchema, LoginSchema, AnilistSchema], directory: dir.path);
 
   // set the localPath variable
   localPath = await _localPath;
@@ -69,7 +82,6 @@ Future<void> main() async {
 
   // set the logStoragePath variable
   logStoragePath = "$localPath/Documents/";
-
 
   // set language to english
   // Settings.setValue<String>("localeString", "en");
@@ -106,6 +118,10 @@ Future<void> main() async {
       logger.d("login password: " + logins[0].password);
     }
     logger.d("login found");
+    var aniTokens = await isar.anilists.where().findAll();
+    if (aniTokens.isNotEmpty) {
+      (await AnilistProvider.getInstance()).setToken(aniTokens[0].token);
+    }
     runApp(MyApp(
       url: logins[0].serverUrl,
       username: logins[0].username,
@@ -135,14 +151,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<LocaleChangeNotifier>(
-            create: (context) => LocaleChangeNotifier(context, prefs!)),
-        ChangeNotifierProvider<ThemeChangeNotifier>(
-            create: (context) => ThemeChangeNotifier(context, prefs!)),
+        ChangeNotifierProvider<LocaleChangeNotifier>(create: (context) => LocaleChangeNotifier(context, prefs!)),
+        ChangeNotifierProvider<ThemeChangeNotifier>(create: (context) => ThemeChangeNotifier(context, prefs!)),
       ],
       builder: (context, _) {
-        return Consumer2<LocaleChangeNotifier, ThemeChangeNotifier>(
-            builder: (context, localeChangeNotifier, themeChangeNotifier, _) {
+        return Consumer2<LocaleChangeNotifier, ThemeChangeNotifier>(builder: (context, localeChangeNotifier, themeChangeNotifier, _) {
           Locale locale = localeChangeNotifier.locale;
           ThemeData themeData = themeChangeNotifier.getTheme;
           return MaterialApp(
@@ -157,8 +170,7 @@ class MyApp extends StatelessWidget {
               future: Connectivity().checkConnectivity(),
               builder: (context, snapshot) {
                 SharedPreferences.getInstance().then((prefs) {
-                  ThemeChangeNotifier themeChangeNotifier =
-                      Provider.of<ThemeChangeNotifier>(context, listen: false);
+                  ThemeChangeNotifier themeChangeNotifier = Provider.of<ThemeChangeNotifier>(context, listen: false);
                   // get the theme from shared preferences
                   String theme = prefs.getString('theme') ?? 'dark';
                   // set the theme
@@ -202,8 +214,7 @@ class MyHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     HttpClient client = super.createHttpClient(context);
-    client.badCertificateCallback =
-        (X509Certificate cert, String host, int port) => true;
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
     return client;
   }
 }
